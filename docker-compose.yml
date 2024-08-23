@@ -62,6 +62,7 @@ services:
       - D:\AI\SD\data\output:/data/output
       # And put sd models under repo SSD
       - ./data/models/Stable-diffusion:/data/models/Stable-diffusion
+      - ./data/models/text_encoder:/data/models/text_encoder
     deploy:
       resources:
         reservations:
