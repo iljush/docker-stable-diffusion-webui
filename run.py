@@ -171,9 +171,7 @@ if __name__ == "__main__":
     print('Created Batch Response.')
     
     job_id = response["job_ids"][0]
-    postprocessing = False
-    estimated_total_time = 0.000
-    started_post_process_time = 0.000
+    estimated_total_time = max_frames * 5
     try:
         response = get_job_status(job_id)
 
@@ -190,31 +188,10 @@ if __name__ == "__main__":
             print('Getting Status for job ' + str(job_id))
             response = get_job_status(job_id)
             print("Full Job Status Response:", json.dumps(response, indent=2))
+            current_process_time = time.time() - start_process_time
+            
+            phase_progress = float(current_process_time) / estimated_total_time
 
-            full_response = get_jobs()
-            print("All JObs?:", json.dumps(full_response, indent=2))
-
-            print("SD PROGRESS UPDATE: " , response["phase_progress"])
-            # Check if the phase is POSTPROCESS and manually set the progress close to 1
-            if response["phase"] == "POST_PROCESSING":
-                current_process_time = time.time() - start_process_time
-
-                if not postprocessing:
-                    started_post_process_time =current_process_time
-
-                    estimated_total_time = current_process_time/0.9
-
-
-                    postprocessing = True
-
-             
-                post_process_time_fraction = current_process_time / (estimated_total_time)
-
-                phase_progress =  min(post_process_time_fraction, 1.0)
-
-    
-            else:
-                phase_progress = response["phase_progress"] *0.9
 
             awsUpdateResp = aws_api.update_project_percentage(int(phase_progress * 100))            
             print("AWS: "+ str( awsUpdateResp) + "" +"\n status: "+ str(  response["status"]) + "\n phase: " + str( response["phase"])  +'\n phase_progress: ' + str(int(phase_progress * 100)))
