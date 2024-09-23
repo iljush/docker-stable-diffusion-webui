@@ -139,6 +139,10 @@ COPY --link --chown=$UID:0 --chmod=775 stable-diffusion-webui/html/licenses.html
 # Copy entrypoint
 COPY --link --chown=$UID:0 --chmod=775 entrypoint.sh /entrypoint.sh
 
+COPY --link --chown=$UID:0 --chmod=775 run.py /run.py
+COPY --link --chown=$UID:0 --chmod=775 aws_ingest.py /aws_ingest.py
+COPY --link --chown=$UID:0 --chmod=775 requirements.txt /requirements.txt
+
 # Copy dependencies and code
 COPY --link --chown=$UID:0 --chmod=775 --from=build /root/.local /home/$UID/.local
 COPY --link --chown=$UID:0 --chmod=775 stable-diffusion-webui /app
@@ -164,7 +168,11 @@ STOPSIGNAL SIGINT
 HEALTHCHECK --interval=30s --timeout=2s --start-period=30s \
     CMD [ "curl", "--fail", "http://localhost:7860/" ]
 
-# Use dumb-init as PID 1 to handle signals properly
+
+
+
+
+    # Use dumb-init as PID 1 to handle signals properly
 ENTRYPOINT [ "dumb-init", "--", "/entrypoint.sh" ]
 
 CMD [ "--xformers", "--api", "--allow-code" ]

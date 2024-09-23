@@ -48,6 +48,9 @@ services:
     environment:
       # Use the volume to get better performance then bind mount.
       # And users should not touch these files in general.
+      # TODO: REMOVE WHEN USING IAM ROLE
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - SD_WEBUI_CACHE_FILE=/.cache/cache.json
       - SD_WEBUI_CACHE_DIR=/.cache
     tmpfs:

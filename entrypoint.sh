@@ -25,6 +25,18 @@ data_dir_fallback() {
     find ./models -type f -name 'Put*here.txt' -exec rm {} \;
     find ./models -type d -empty -delete
     ln -svd /data/models/* /app/models 2>/dev/null
+
+    #Installing Onto API Requirements
+    #pip install -r requirements.txt
+
+    # ADD: Clone the Deforum extension into the extensions folder
+    cd /data/extensions
+
+    echo "Cloning Deforum extension..."
+    git clone https://github.com/Tok/sd-forge-deforum
+    cd sd-forge-deforum
+    #pip install -r requirements.txt
+
 }
 
 install_requirements() {
@@ -69,7 +81,13 @@ trap handle_sigint INT
 echo "Starting WebUI with arguments: $*"
 python3 /app/launch.py --listen --port 7860 --data-dir /data --gradio-allowed-path "." "$@" &
 python_pid=$!
+
+echo "Starting run.py in parallel..."
+python3 /run.py &
+run_pid=$!
+
 wait $python_pid
+wait $run_pid
 
 echo "WebUI stopped."
 correct_permissions
