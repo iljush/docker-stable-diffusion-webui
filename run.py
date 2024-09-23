@@ -172,7 +172,8 @@ if __name__ == "__main__":
     
     job_id = response["job_ids"][0]
     postprocessing = False
-    estimated_total_time = max_frames*3
+    estimated_total_time = 0.000
+    started_post_process_time = 0.000
     try:
         response = get_job_status(job_id)
 
@@ -184,10 +185,11 @@ if __name__ == "__main__":
                 update_response = aws_api.update_project_status(  video_file_name, error_message="Automatic1111 Error", success=False)
                 print("Project status updated with failure: Automatic1111 Error" + ' \n Project status updated with failure.')
                 
-            time.sleep(60)
+            time.sleep(5)
             print("Getting Status for job "+ str(  job_id))
             print('Getting Status for job ' + str(job_id))
             response = get_job_status(job_id)
+            print("Full Job Status Response:", json.dumps(response, indent=2))
 
             full_response = get_jobs()
             print("All JObs?:", json.dumps(full_response, indent=2))
