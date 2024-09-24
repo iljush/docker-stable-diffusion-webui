@@ -58,7 +58,6 @@ services:
     volumes:
       - cache:/.cache
       - repositories:/app/repositories
-      - ./data:/data
     deploy:
       resources:
         reservations:

@@ -108,18 +108,36 @@ ARG HF_HOME
 ENV XDG_CACHE_HOME=${CACHE_HOME}
 ENV TORCH_HOME=${TORCH_HOME}
 ENV HF_HOME=${HF_HOME}
-
 # Create directories with correct permissions
 RUN install -d -m 775 -o $UID -g 0 ${CACHE_HOME} && \
     install -d -m 775 -o $UID -g 0 /licenses && \
     install -d -m 775 -o $UID -g 0 /data && \
     install -d -m 775 -o $UID -g 0 /data/scripts && \
+    install -d -m 775 -o $UID -g 0 /data/models/Stable-diffusion/Flux && \
+    install -d -m 775 -o $UID -g 0 /data/models/VAE && \
+    install -d -m 775 -o $UID -g 0 /data/models/Deforum && \
+
     install -d -m 775 -o $UID -g 0 /app && \
     install -d -m 775 -o $UID -g 0 /app/repositories && \
     # For arbitrary uid support
     install -d -m 775 -o $UID -g 0 /.local && \
     install -d -m 775 -o $UID -g 0 /.config && \
     chown -R $UID:0 /home/$UID && chmod -R g=u /home/$UID
+
+
+COPY ./data /data 
+COPY ./realesrgan_ncnn /data/models/Deforum/realesrgan_ncnn
+
+#Download Models
+# Load the environment variables from the .env file
+RUN export $(grep -v '^#' .env | xargs) \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt
+
+RUN chmod +x /data/models/Deforum/realesrgan_ncnn/realesrgan-ncnn-vulkan
 
 # curl for healthcheck
 COPY --link --from=ghcr.io/tarampampam/curl:8.7.1 /bin/curl /usr/local/bin/
