@@ -96,8 +96,13 @@ if __name__ == "__main__":
     start_process_time = time.time()
     
     current_dir =  os.path.dirname(os.path.abspath(__file__))
-    id = "850b5eb8-9dbf-4ce2-add4-a5087d4d8e86"
     parser = argparse.ArgumentParser(description="Music Video Generation")
+    parser.add_argument(
+        "--project_id",
+        type=str,
+        default="850b5eb8-9dbf-4ce2-add4-a5087d4d8e86",
+        help="Name of the S3 bucket where audio and submitted form are stored"
+    )
     parser.add_argument(
         "--s3_bucket_name",
         type=str,
@@ -110,58 +115,34 @@ if __name__ == "__main__":
         default="Project",
         help="name of the video file that the user can download"
     )
-    parser.add_argument(
-        "--api_url",
-        type=str,
-        default=f"https://api.app.ontoworks.org/project/{id}/status",
-        help="Project-specific API URL"
-    )
-    parser.add_argument(
-        "--audio_object_key",
-        type=str,
-        default=f"Project.Audio/{id}",
-        help="Object key of the audio file stored in S3 bucket"
-    )
-    parser.add_argument(
-        "--EC2_audio_path",
-        type=str,
-        default= os.path.join(current_dir, "data\\audio.mp3"),
-        help="Path on EC2 where audio is downloaded to"
-    )
-
-    parser.add_argument(
-        "--deforum_settings_object_key",
-        type=str,
-        default=f"Project.Finalized.Settings/{id}",
-        help="Object key of the deforum settings stored in S3 bucket"
-    )
-
-    parser.add_argument(
-        "--EC2_deforum_settings_path",
-        type=str,
-        default=  os.path.join(current_dir,"data\\deforum.json"),
-        help="Path on EC2 where deforum settings is downloaded to"
-    )
-    parser.add_argument(
-        "--video_path", 
-        type=str, 
-        default="Project.Output/{id}",
-        help="Path where video will be uploaded."
-    )
-
     args = parser.parse_args()
 
-    aws_api = aws_ingest( "api@ontoworks.org" , "Ontoworks@123",args.api_url,)
+    #Project-specific API URL
+    update_api_url = f"https://api.app.ontoworks.org/project/{args.project_id}/status"
+    #Object key of the audio file stored in S3 bucket
+    audio_object_key=f"Project.Audio/{args.project_id}"
+    #Object key of the deforum settings stored in S3 bucket
+    deforum_settings_object_key=f"Project.Finalized.Settings/{args.project_id}"
+    #Path on EC2 where audio is downloaded to
+    local_audio_path = os.path.join(current_dir, "data\\audio.mp3")
+    #Path on EC2 where deforum settings is downloaded to
+    local_settings_path = os.path.join(current_dir,"data\\deforum.json")
+    #Path where video will be uploaded.
+    upload_video_path  = f"Project.Output/{args.project_id}"
+ 
 
-    aws_api.download_file_from_s3(args.s3_bucket_name, args.audio_object_key, args.EC2_audio_path)
-    aws_api.download_file_from_s3(args.s3_bucket_name, args.deforum_settings_object_key, args.EC2_deforum_settings_path)
+
+    aws_api = aws_ingest( "api@ontoworks.org" , "Ontoworks@123",update_api_url)
+
+    aws_api.download_file_from_s3(args.s3_bucket_name, audio_object_key,local_audio_path)
+    aws_api.download_file_from_s3(args.s3_bucket_name, deforum_settings_object_key, local_settings_path)
 
     video_file_name= args.project_name + ".mp4" #"_" + combined_form['batch_name'][8:] +'.mp4'
 
    
 
-    deforum_settings = load_deforum_settings(args.EC2_deforum_settings_path)
-    deforum_settings["soundtrack_path"] = args.EC2_audio_path
+    deforum_settings = load_deforum_settings(local_settings_path)
+    deforum_settings["soundtrack_path"] = local_audio_path
 
     max_frames  = deforum_settings["max_frames"]
     # Create a batch of jobs
@@ -178,7 +159,6 @@ if __name__ == "__main__":
         while not (response["phase"]=="DONE"):
             if (response["status"]=="FAILED"):
                 print("Automatic1111 Error")
-                api_url = args.api_url
                 status_id = "37d6782f-1c3b-46d5-9378-ff85814bc60d"  # Assuming "Failed"
                 update_response = aws_api.update_project_status(  video_file_name, error_message="Automatic1111 Error", success=False)
                 print("Project status updated with failure: Automatic1111 Error" + ' \n Project status updated with failure.')

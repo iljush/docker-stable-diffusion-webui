@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--project_id", "b605ae50-515a-49fd-a81e-ef465ab8da5a",  // <-- Add this
+                "--project_name", "testtestjohohoho",  // <-- Add this
+
+                "${command:pickArgs}"
+            ]
+        }
+    ]
+}

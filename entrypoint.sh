@@ -17,10 +17,9 @@ data_dir_fallback() {
     echo "Setting up data directory fallback..."
     ln -svT /data/ui-config.json /app/ui-config.json 2>/dev/null
 
-    mkdir -p /data/config_states /data/extensions /data/models
-    mkdir -p /app/config_states /app/extensions /app/models
+    mkdir -p /data/config_states /data/models
+    mkdir -p /app/config_states /app/models
     ln -svT /data/config_states/* /app/config_states 2>/dev/null
-    ln -svd /data/extensions/* /app/extensions 2>/dev/null
 
     find ./models -type f -name 'Put*here.txt' -exec rm {} \;
     find ./models -type d -empty -delete
@@ -29,14 +28,16 @@ data_dir_fallback() {
     #Installing Onto API Requirements
     #pip install -r requirements.txt
 
-    # ADD: Clone the Deforum extension into the extensions folder
-    cd /data/extensions
+    # Navigate to the extensions folder
+    cd /app/extensions
 
-    echo "Cloning Deforum extension..."
-    git clone https://github.com/Tok/sd-forge-deforum
-    cd sd-forge-deforum
-    #pip install -r requirements.txt
-
+    # Check if the Deforum extension already exists
+    if [ -d "sd-forge-deforum" ]; then
+        echo "Deforum extension already exists. Skipping clone."
+    else
+        echo "Cloning Deforum extension..."
+        git clone https://github.com/Tok/sd-forge-deforum
+    fi
 }
 
 install_requirements() {
