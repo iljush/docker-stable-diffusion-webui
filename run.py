@@ -7,6 +7,7 @@ import time
 import argparse
 from aws_ingest import aws_ingest
 import os
+import sys
 
 
 # Base URL of the API
@@ -69,16 +70,14 @@ def is_api_running():
 
 
 
-def attempt_create_batch_with_retries(deforum_settings, retries=10, backoff_factor=15):
+def attempt_create_batch_with_retries(deforum_settings, retries=20, backoff_factor=15):
     for attempt in range(retries):
         try:
             response = create_batch(deforum_settings)
             print('Created Batch Response.')
             return response
         except Exception as e:
-            print(f'Error occurred on attempt {attempt + 1}/{retries}: {e}')
-            print(f'Error occurred on attempt {attempt + 1}/{retries}: {e}')
-            print(traceback.format_exc())
+            print(f'API is not Loaded on attempt: {attempt + 1}/{retries}: {e}')
             if attempt < retries - 1:
                 sleep_time = backoff_factor 
                 print(f'Waiting for {sleep_time} seconds before next attempt...')
@@ -124,9 +123,9 @@ if __name__ == "__main__":
     #Object key of the deforum settings stored in S3 bucket
     deforum_settings_object_key=f"Project.Finalized.Settings/{args.project_id}"
     #Path on EC2 where audio is downloaded to
-    local_audio_path = os.path.join(current_dir, "data\\audio.mp3")
+    local_audio_path = os.path.join(current_dir, "data/audio.mp3")
     #Path on EC2 where deforum settings is downloaded to
-    local_settings_path = os.path.join(current_dir,"data\\deforum.json")
+    local_settings_path = os.path.join(current_dir,"data/deforum.json")
     #Path where video will be uploaded.
     upload_video_path  = f"Project.Output/{args.project_id}"
  
@@ -143,13 +142,12 @@ if __name__ == "__main__":
 
     deforum_settings = load_deforum_settings(local_settings_path)
     deforum_settings["soundtrack_path"] = local_audio_path
-
+    deforum_settings["batch_name"] = "deforum"
     max_frames  = deforum_settings["max_frames"]
     # Create a batch of jobs
     response = attempt_create_batch_with_retries(deforum_settings)
     print("Create Batch Response:" + str( json.dumps(response, indent=2)))
     
-    print('Created Batch Response.')
     
     job_id = response["job_ids"][0]
     estimated_total_time = max_frames * 5
@@ -162,8 +160,10 @@ if __name__ == "__main__":
                 status_id = "37d6782f-1c3b-46d5-9378-ff85814bc60d"  # Assuming "Failed"
                 update_response = aws_api.update_project_status(  video_file_name, error_message="Automatic1111 Error", success=False)
                 print("Project status updated with failure: Automatic1111 Error" + ' \n Project status updated with failure.')
+                sys.exit(1)  # Exit code 1 for failure
+
                 
-            time.sleep(5)
+            time.sleep(15)
             print("Getting Status for job "+ str(  job_id))
             print('Getting Status for job ' + str(job_id))
             response = get_job_status(job_id)
@@ -180,15 +180,13 @@ if __name__ == "__main__":
 
         print(f"An error occurred: {e}")
         error_message = str(e)
-        api_url = args.api_url
         status_id = "37d6782f-1c3b-46d5-9378-ff85814bc60d"  # Assuming "Failed"
         update_response = aws_api.update_project_status(  video_file_name, error_message=error_message, success=False)
         print("Project status updated with failure:" + str( update_response) + ' \n Project status updated with failure.')
+        sys.exit(1)  # Exit code 1 for failure
 
-
-    folder_path = f"./data/outputs/img2img-images/{deforum_settings['batch_name']}"
-    bucket_path = args.s3_bucket_name
-    msg = aws_api.upload_video_and_cleanup_frames(bucket_path, folder_path, video_file_name, args.video_path)
+    bucket_path = args.s3_bucket_name 
+    msg = aws_api.upload_video_and_cleanup_frames(bucket_path, os.path.join(current_dir,"data/outputs/img2img-images/deforum"), video_file_name, upload_video_path)
     print("project completed.")
     print('project completed.')
 
@@ -201,12 +199,16 @@ if __name__ == "__main__":
         update_response = aws_api.update_project_status( video_file_name,error_message="upload of finished video failed :(", success=False)
         print("Project status updated with failure:"+ str(  update_response))
         print('Project status updated with failure.')
+        print("Process failed.")
+        sys.exit(1)  # Exit code 1 for failure
     
     current_time = datetime.now()
     print("PROJECT FINISHED AT"+ str(  current_time))
     duration = current_time - start_time
-    formatted_duration = str(duration).split(".")[0]  # This strips the microseconds part
+    formatted_duration = str(duration).split(".")[0] 
     print(f"TOTAL DURATION: {formatted_duration}")
+    print("Process completed successfully.")
+    sys.exit(0)  # Exit code 0 for success
 
 
 

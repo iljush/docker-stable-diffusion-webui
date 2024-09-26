@@ -30,7 +30,8 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
     # https://pillow.readthedocs.io/en/stable/installation/building-from-source.html
     libjpeg62-turbo-dev libwebp-dev zlib1g-dev \
     libgl1 libglib2.0-0 libgoogle-perftools-dev \
-    git libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 build-essential
+    git libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 build-essential wget \
+    libvulkan1
 
 ########################################
 # Build stage
@@ -127,6 +128,8 @@ RUN install -d -m 775 -o $UID -g 0 ${CACHE_HOME} && \
 
 COPY ./data /data 
 COPY ./realesrgan_ncnn /data/models/Deforum/realesrgan_ncnn
+RUN chmod +x /data/models/Deforum/realesrgan_ncnn/realesrgan-ncnn-vulkan
+RUN chown -R $UID:0 /data && chmod -R 775 /data
 
 #Download Models
 # Load the environment variables from the .env file
@@ -137,7 +140,6 @@ RUN export $(grep -v '^#' .env | xargs) \
     && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors \
     && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt
 
-RUN chmod +x /data/models/Deforum/realesrgan_ncnn/realesrgan-ncnn-vulkan
 
 # curl for healthcheck
 COPY --link --from=ghcr.io/tarampampam/curl:8.7.1 /bin/curl /usr/local/bin/
@@ -159,7 +161,6 @@ COPY --link --chown=$UID:0 --chmod=775 entrypoint.sh /entrypoint.sh
 
 COPY --link --chown=$UID:0 --chmod=775 run.py /run.py
 COPY --link --chown=$UID:0 --chmod=775 aws_ingest.py /aws_ingest.py
-COPY --link --chown=$UID:0 --chmod=775 requirements.txt /requirements.txt
 
 # Copy dependencies and code
 COPY --link --chown=$UID:0 --chmod=775 --from=build /root/.local /home/$UID/.local
@@ -175,7 +176,7 @@ ENV GIT_CONFIG_VALUE_0="*"
 
 WORKDIR /app
 
-VOLUME [ "/data", "/tmp" ]
+VOLUME [ "/tmp" ]
 
 EXPOSE 7860
 

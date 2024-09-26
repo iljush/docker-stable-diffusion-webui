@@ -53,6 +53,9 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - SD_WEBUI_CACHE_FILE=/.cache/cache.json
       - SD_WEBUI_CACHE_DIR=/.cache
+      - PROJECT_ID=${PROJECT_ID:-850b5eb8-9dbf-4ce2-add4-a5087d4d8e86}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-blob.api.app.ontoworks.org}
+      - PROJECT_NAME=${PROJECT_NAME:-testProjectYolo}
     tmpfs:
       - /tmp
     volumes:

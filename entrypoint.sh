@@ -20,24 +20,14 @@ data_dir_fallback() {
     mkdir -p /data/config_states /data/models
     mkdir -p /app/config_states /app/models
     ln -svT /data/config_states/* /app/config_states 2>/dev/null
+    ln -svd /data/extensions/* /app/extensions 2>/dev/null
 
     find ./models -type f -name 'Put*here.txt' -exec rm {} \;
     find ./models -type d -empty -delete
     ln -svd /data/models/* /app/models 2>/dev/null
 
-    #Installing Onto API Requirements
-    #pip install -r requirements.txt
 
-    # Navigate to the extensions folder
-    cd /app/extensions
 
-    # Check if the Deforum extension already exists
-    if [ -d "sd-forge-deforum" ]; then
-        echo "Deforum extension already exists. Skipping clone."
-    else
-        echo "Cloning Deforum extension..."
-        git clone https://github.com/Tok/sd-forge-deforum
-    fi
 }
 
 install_requirements() {
@@ -83,8 +73,10 @@ echo "Starting WebUI with arguments: $*"
 python3 /app/launch.py --listen --port 7860 --data-dir /data --gradio-allowed-path "." "$@" &
 python_pid=$!
 
+
+
 echo "Starting run.py in parallel..."
-python3 /run.py &
+python3 /run.py --project_id "$PROJECT_ID" --s3_bucket_name "$S3_BUCKET_NAME" --project_name "$PROJECT_NAME" &
 run_pid=$!
 
 wait $python_pid
