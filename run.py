@@ -85,7 +85,20 @@ def attempt_create_batch_with_retries(deforum_settings, retries=20, backoff_fact
             else:
                 print(f'Failed to create batch after {retries} attempts.')
                 return None
-
+def get_job_status_with_retries(job_id, retries=5, backoff_factor=5):
+    for attempt in range(retries):
+        try:
+            response = get_job_status(job_id)
+            return response
+        except requests.exceptions.RequestException as e:
+            print(f'Error getting job status: {e}')
+            if attempt < retries - 1:
+                sleep_time = backoff_factor * (attempt + 1)
+                print(f'Retrying in {sleep_time} seconds...')
+                time.sleep(sleep_time)
+            else:
+                print(f'Failed to get job status after {retries} attempts.')
+                raise
 
 if __name__ == "__main__":
    
@@ -151,8 +164,10 @@ if __name__ == "__main__":
     
     job_id = response["job_ids"][0]
     estimated_total_time = max_frames * 5
+    time.sleep(5)
+
     try:
-        response = get_job_status(job_id)
+        response = get_job_status_with_retries(job_id)
 
         while not (response["phase"]=="DONE"):
             if (response["status"]=="FAILED"):
@@ -162,12 +177,10 @@ if __name__ == "__main__":
                 print("Project status updated with failure: Automatic1111 Error" + ' \n Project status updated with failure.')
                 sys.exit(1)  # Exit code 1 for failure
 
-                
             time.sleep(15)
-            print("Getting Status for job "+ str(  job_id))
+
             print('Getting Status for job ' + str(job_id))
             response = get_job_status(job_id)
-            print("Full Job Status Response:", json.dumps(response, indent=2))
             current_process_time = time.time() - start_process_time
             
             phase_progress = float(current_process_time) / estimated_total_time

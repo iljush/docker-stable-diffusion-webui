@@ -12,22 +12,14 @@ services:
       # --listen --port 7860 --data-dir /data
       #
       # Recommanded:
-      - --xformers
-      - --api
-      - --allow-code
+ 
       #
       # You may or may not need:
       ## Enable installing/modifying extensions from the UI, please pay attention to security considerations.
-      - --enable-insecure-extension-access 
       #
       ## Optimizations
       ## https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Optimizations
-      - --opt-sdp-attention
-      - --opt-sdp-no-mem-attention
-      - --opt-split-attention
-      - --opt-channelslast
 
-      - --deforum-api
       #
       ## Debug logging
       # - --loglevel
