@@ -31,7 +31,7 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
     libjpeg62-turbo-dev libwebp-dev zlib1g-dev \
     libgl1 libglib2.0-0 libgoogle-perftools-dev \
     git libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 build-essential wget \
-    libvulkan1
+    libvulkan1 
 
 ########################################
 # Build stage
@@ -131,15 +131,6 @@ COPY ./realesrgan_ncnn /data/models/Deforum/realesrgan_ncnn
 RUN chmod +x /data/models/Deforum/realesrgan_ncnn/realesrgan-ncnn-vulkan
 RUN chown -R $UID:0 /data && chmod -R 775 /data
 
-#Download Models
-# Load the environment variables from the .env file
-RUN export $(grep -v '^#' .env | xargs) \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt
-
 
 # curl for healthcheck
 COPY --link --from=ghcr.io/tarampampam/curl:8.7.1 /bin/curl /usr/local/bin/
@@ -186,10 +177,6 @@ STOPSIGNAL SIGINT
 
 HEALTHCHECK --interval=30s --timeout=2s --start-period=30s \
     CMD [ "curl", "--fail", "http://localhost:7860/" ]
-
-
-
-
 
     # Use dumb-init as PID 1 to handle signals properly
 ENTRYPOINT [ "dumb-init", "--", "/entrypoint.sh" ]

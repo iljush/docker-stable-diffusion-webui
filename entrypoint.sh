@@ -73,14 +73,23 @@ echo "Starting WebUI with arguments: $*"
 python3 /app/launch.py --listen --port 7860 --data-dir /data --gradio-allowed-path "." --xformers --api --allow-code --enable-insecure-extension-access --opt-sdp-attention --opt-sdp-no-mem-attention --opt-split-attention --opt-channelslast --deforum-api &
 python_pid=$!
 
-
-
 echo "Starting run.py in parallel..."
-python3 /run.py --project_id "$PROJECT_ID" --s3_bucket_name "$S3_BUCKET_NAME" --project_name "$PROJECT_NAME" &
-run_pid=$!
+# Run run.py and capture its exit code
+python3 /run.py --project_id "$PROJECT_ID" --s3_bucket_name "$S3_BUCKET_NAME" --project_name "$PROJECT_NAME"
+run_exit_code=$?
 
-wait $python_pid
-wait $run_pid
+# Once run.py finishes, check if the WebUI process is still running using `kill -0`
+if kill -0 $python_pid 2>/dev/null; then
+  echo "Stopping WebUI..."
+  kill $python_pid
+  wait $python_pid
+fi
 
+echo "run.py exited with code $run_exit_code"
 echo "WebUI stopped."
+
+# Correct permissions
 correct_permissions
+
+# Exit with the same exit code as run.py
+exit $run_exit_code

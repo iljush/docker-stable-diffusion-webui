@@ -18,19 +18,6 @@ def load_deforum_settings(file_path):
         deforum_settings = json.load(file)
     return deforum_settings
 
-# Function to create a batch of jobs
-def create_batch(deforum_settings, settings_overrides=None):
-    url = f"{BASE_URL}/deforum_api/batches"
-    payload = {
-        "deforum_settings": deforum_settings,
-        "options_overrides": settings_overrides or {}
-    }
-    if settings_overrides:
-        payload["settings_overrides"] = settings_overrides
-
-    #response = requests.post(url, json=payload)
-    response = requests.post(url, json=payload)
-    return response.json()
 
 # Function to get the list of batches
 def get_batches():
@@ -68,23 +55,48 @@ def is_api_running():
         return False
 
 
+# Function to create a batch of jobs
+def create_batch(deforum_settings, settings_overrides=None):
+    url = f"{BASE_URL}/deforum_api/batches"
+    payload = {
+        "deforum_settings": deforum_settings,
+        "options_overrides": settings_overrides or {}
+    }
+    if settings_overrides:
+        payload["settings_overrides"] = settings_overrides
 
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()  # Raises HTTPError for bad responses
+        response_json = response.json()
+        if "job_ids" not in response_json:
+            raise ValueError(f"Response does not contain 'job_ids': {response_json}")
+        return response_json
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error occurred: {e} - Response content: {response.content}")
+        raise
+    except Exception as e:
+        print(f"An error occurred while creating batch: {e}")
+        raise
 
-def attempt_create_batch_with_retries(deforum_settings, retries=20, backoff_factor=15):
+# Modify the attempt_create_batch_with_retries function
+def attempt_create_batch_with_retries(deforum_settings, retries=100, backoff_factor=15):
     for attempt in range(retries):
         try:
             response = create_batch(deforum_settings)
             print('Created Batch Response.')
             return response
         except Exception as e:
-            print(f'API is not Loaded on attempt: {attempt + 1}/{retries}: {e}')
+            print(f'Error on attempt {attempt + 1}/{retries}: {e}')
             if attempt < retries - 1:
-                sleep_time = backoff_factor 
+                sleep_time = backoff_factor
                 print(f'Waiting for {sleep_time} seconds before next attempt...')
                 time.sleep(sleep_time)
             else:
                 print(f'Failed to create batch after {retries} attempts.')
                 return None
+
+
 def get_job_status_with_retries(job_id, retries=5, backoff_factor=5):
     for attempt in range(retries):
         try:
@@ -162,7 +174,11 @@ if __name__ == "__main__":
     print("Create Batch Response:" + str( json.dumps(response, indent=2)))
     
     
-    job_id = response["job_ids"][0]
+    if response and "job_ids" in response:
+        job_id = response["job_ids"][0]
+    else:
+        print("Failed to retrieve 'job_ids' from the response.")
+        sys.exit(1)  # Exit or handle the error appropriately
     estimated_total_time = max_frames * 5
     time.sleep(5)
 
@@ -180,7 +196,7 @@ if __name__ == "__main__":
             time.sleep(15)
 
             print('Getting Status for job ' + str(job_id))
-            response = get_job_status(job_id)
+            response = get_job_status_with_retries(job_id)
             current_process_time = time.time() - start_process_time
             
             phase_progress = float(current_process_time) / estimated_total_time

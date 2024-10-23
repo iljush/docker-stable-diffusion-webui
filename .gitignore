@@ -175,9 +175,6 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-data/**
-!data/**/
-data/extensions/**
-!data/**/.gitkeep
-
-docker-compose.override.yml
+data/models/VAE/*
+data/models/Stable-diffusion/*
+data/models/Deforum/*
