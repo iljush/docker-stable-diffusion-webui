@@ -177,4 +177,4 @@ pyrightconfig.json
 
 data/models/VAE/*
 data/models/Stable-diffusion/*
-data/models/Deforum/*
+data/models/Deforum/dpt_large-midas-2f21e586.pt

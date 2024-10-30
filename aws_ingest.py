@@ -8,7 +8,8 @@ import time
 import glob
 import shutil
 import logging
-
+from moviepy.editor import ImageSequenceClip, AudioFileClip
+import re
 logger = logging.getLogger('my_project')
 
 class aws_ingest:
@@ -101,6 +102,77 @@ class aws_ingest:
             return project_id
         except (ValueError, IndexError):
             raise ValueError("Invalid URL: cannot extract project ID")
+    def stitch_video(self, bucket_name, folder_path, video_file_name, output_path, audio_path):
+        # Define the directory containing your frames
+        frames_dir = folder_path  # update this with your frames directory
+        pattern = re.compile(r".*_(\d+)\.png")
+        frames = sorted(
+            [os.path.join(frames_dir, f) for f in os.listdir(frames_dir) if pattern.match(f)],
+            key=lambda x: int(pattern.search(x).group(1))  # Sort by frame ID in the filename
+        )
+ 
+
+        # Load image sequence
+        fps = 30  # frames per second
+        clip = ImageSequenceClip(frames, fps=fps)
+
+        # Add audio to the clip
+        audio = AudioFileClip(audio_path)
+        final_clip = clip.set_audio(audio)
+
+        # Save the video
+        stitched_video_path = folder_path + video_file_name
+        final_clip.write_videofile(stitched_video_path, codec='libx264', audio_codec='aac')
+               # Initialize the S3 client
+        s3 = boto3.client('s3')
+
+        # Full path to the video file
+        files = glob.glob(stitched_video_path)
+        if not files:
+            print("No MP4 files found in the folder.")
+            return None
+        original_video_file_path = files[0]
+        print("Original video file: ", original_video_file_path)
+
+        # Path with the new name
+        new_video_file_path = os.path.join(folder_path, video_file_name)
+
+        # Rename the file
+        os.rename(original_video_file_path, new_video_file_path)
+        print(f"Renamed file to {new_video_file_path}")
+
+        try:
+            # Upload the video file to S3
+            s3.upload_file(new_video_file_path, bucket_name, output_path)
+            print(f"Successfully uploaded {video_file_name} to s3://{bucket_name}/{output_path}")
+
+            # Delete all frames in the folder
+            for file_name in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file_name)
+                try:
+                    if os.path.isfile(file_path) and file_name != video_file_name and not file_name.endswith('.txt'):
+                        os.remove(file_path)
+                        print(f"Deleted frame {file_name}")
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                        print(f"Deleted folder {file_path}")
+                except Exception as e:
+                    print(f"Error deleting file {file_path}: {e}")
+            msg = "success"
+            return msg
+            # Optionally, you can delete the video file itself after uploading if you no longer need it locally
+            # os.remove(video_file_path)
+    
+        except FileNotFoundError:
+            print(f"The file {new_video_file_path} was not found")
+            return None
+        except NoCredentialsError:
+            print("Credentials not available")
+            return None
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            return None
+
 
     def upload_video_and_cleanup_frames(self, bucket_name, folder_path, video_file_name, output_path):
         # Initialize the S3 client

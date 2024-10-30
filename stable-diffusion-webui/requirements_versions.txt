@@ -52,4 +52,5 @@ pims
 imageio_ffmpeg
 rich
 gdown
+moviepy
 

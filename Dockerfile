@@ -14,7 +14,7 @@ ARG SKIP_REQUIREMENTS_INSTALL=
 ########################################
 # Base stage
 ########################################
-FROM python:3.10-slim as base
+FROM --platform=linux/amd64 python:3.10-slim as base
 
 # RUN mount cache for multi-arch: https://github.com/docker/buildx/issues/549#issuecomment-1788297892
 ARG TARGETARCH
@@ -36,12 +36,12 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
 ########################################
 # Build stage
 ########################################
-FROM base as prepare_build_empty
+FROM --platform=linux/amd64 base as prepare_build_empty
 
 # An empty directory for final stage
 RUN install -d /root/.local
 
-FROM base as prepare_build
+FROM --platform=linux/amd64 base as prepare_build
 
 # RUN mount cache for multi-arch: https://github.com/docker/buildx/issues/549#issuecomment-1788297892
 ARG TARGETARCH
@@ -84,12 +84,12 @@ RUN find "/root/.local" -name '*.pyc' -print0 | xargs -0 rm -f || true ; \
     find "/root/.local" -type d -name '__pycache__' -print0 | xargs -0 rm -rf || true ;
 
 # Select the build stage by the build argument
-FROM prepare_build${SKIP_REQUIREMENTS_INSTALL:+_empty} as build
+FROM --platform=linux/amd64 prepare_build${SKIP_REQUIREMENTS_INSTALL:+_empty} as build
 
 ########################################
 # Final stage
 ########################################
-FROM base as final
+FROM --platform=linux/amd64 base as final
 
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
@@ -106,18 +106,15 @@ RUN groupadd -g $UID $UID && \
 ARG CACHE_HOME
 ARG TORCH_HOME
 ARG HF_HOME
+ARG HF_TOKEN
 ENV XDG_CACHE_HOME=${CACHE_HOME}
 ENV TORCH_HOME=${TORCH_HOME}
 ENV HF_HOME=${HF_HOME}
+ENV HF_TOKEN=${HF_TOKEN}
 # Create directories with correct permissions
 RUN install -d -m 775 -o $UID -g 0 ${CACHE_HOME} && \
     install -d -m 775 -o $UID -g 0 /licenses && \
     install -d -m 775 -o $UID -g 0 /data && \
-    install -d -m 775 -o $UID -g 0 /data/scripts && \
-    install -d -m 775 -o $UID -g 0 /data/models/Stable-diffusion/Flux && \
-    install -d -m 775 -o $UID -g 0 /data/models/VAE && \
-    install -d -m 775 -o $UID -g 0 /data/models/Deforum && \
-
     install -d -m 775 -o $UID -g 0 /app && \
     install -d -m 775 -o $UID -g 0 /app/repositories && \
     # For arbitrary uid support
@@ -126,11 +123,22 @@ RUN install -d -m 775 -o $UID -g 0 ${CACHE_HOME} && \
     chown -R $UID:0 /home/$UID && chmod -R g=u /home/$UID
 
 
-COPY ./data /data 
-COPY ./realesrgan_ncnn /data/models/Deforum/realesrgan_ncnn
-RUN chmod +x /data/models/Deforum/realesrgan_ncnn/realesrgan-ncnn-vulkan
-RUN chown -R $UID:0 /data && chmod -R 775 /data
 
+# Combine all data operations into a single layer
+COPY --chown=$UID:0 --chmod=775 ./data /data 
+
+#Download Models
+# Load the environment variables from the .env file
+#RUN echo "HF_TOKEN="
+#RUN echo "$HF_TOKEN" | sed 's/./& /g'
+RUN mkdir -p data/models/Stable-diffusion/Flux
+RUN mkdir -p data/models/VAE
+RUN mkdir -p data/models/Deforum
+RUN wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors \
+    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt
 
 # curl for healthcheck
 COPY --link --from=ghcr.io/tarampampam/curl:8.7.1 /bin/curl /usr/local/bin/

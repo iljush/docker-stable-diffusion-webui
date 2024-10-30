@@ -124,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project_id",
         type=str,
-        default="850b5eb8-9dbf-4ce2-add4-a5087d4d8e86",
+        default="b605ae50-515a-49fd-a81e-ef465ab8da5a",
         help="Name of the S3 bucket where audio and submitted form are stored"
     )
     parser.add_argument(
@@ -215,8 +215,12 @@ if __name__ == "__main__":
         sys.exit(1)  # Exit code 1 for failure
 
     bucket_path = args.s3_bucket_name 
-    msg = aws_api.upload_video_and_cleanup_frames(bucket_path, os.path.join(current_dir,"data/outputs/img2img-images/deforum"), video_file_name, upload_video_path)
-    print("project completed.")
+
+
+
+    msg = aws_api.stitch_video(bucket_path, os.path.join(current_dir,"data/outputs/img2img-images/deforum"), video_file_name, upload_video_path,local_audio_path)
+
+
     print('project completed.')
 
     if msg is not None:
