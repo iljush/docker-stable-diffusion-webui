@@ -34,7 +34,6 @@ class aws_ingest:
     def make_request_with_retries(self, request_func, retries=3, backoff_factor=1.0):
         for attempt in range(retries):
             try:
-                logger.info(f'Attempt {attempt + 1}/{retries}: Making request with token: {self.token}')
                 response = request_func(self.token)
                 response.raise_for_status()
                 return response

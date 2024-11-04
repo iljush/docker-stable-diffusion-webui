@@ -55,27 +55,23 @@ ARG PIP_ROOT_USER_ACTION="ignore"
 ARG PIP_NO_COMPILE="true"
 ARG PIP_DISABLE_PIP_VERSION_CHECK="true"
 
-# Install big packages
-# hadolint ignore=SC2102
+# Copy requirements files
+COPY requirements.txt /requirements.txt
+RUN git clone --depth=1 https://github.com/lllyasviel/stable-diffusion-webui-forge /app && \
+    chown -R $UID:0 /app && \
+    chmod -R 775 /app
+# Install all packages in build stage
 RUN --mount=type=cache,id=pip-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/root/.cache/pip \
     pip install -U --force-reinstall pip setuptools==69.5.1 wheel && \
     pip install -U --extra-index-url https://download.pytorch.org/whl/cu121 --extra-index-url https://pypi.nvidia.com \
-    # `torch` (3.6G) and the underlying package `triton` (276M), `torchvision` is small but install together
-    torch==2.3.1 torchvision==0.18.1 \
-    # `xformers` (471M)
-    xformers==0.0.27
-
-# Install requirements
-RUN --mount=type=cache,id=pip-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/root/.cache/pip \
-    --mount=source=stable-diffusion-webui/requirements_versions.txt,target=requirements.txt \
-    pip install -r requirements.txt clip-anytorch
+    torch==2.3.1 torchvision==0.18.1 xformers==0.0.27 && \
+    pip install -r /requirements.txt && \
+    pip install -r /app/requirements_versions.txt clip-anytorch
 
 # Replace pillow with pillow-simd (Only for x86)
 ARG TARGETPLATFORM
 RUN --mount=type=cache,id=pip-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/root/.cache/pip \
     if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-    # # WebUI actually installed it back whenever it launches
-    # pip uninstall -y pillow && \
     CC="cc -mavx2" pip install -U --force-reinstall pillow-simd; \
     fi
 
@@ -115,30 +111,35 @@ ENV HF_TOKEN=${HF_TOKEN}
 RUN install -d -m 775 -o $UID -g 0 ${CACHE_HOME} && \
     install -d -m 775 -o $UID -g 0 /licenses && \
     install -d -m 775 -o $UID -g 0 /data && \
-    install -d -m 775 -o $UID -g 0 /app && \
-    install -d -m 775 -o $UID -g 0 /app/repositories && \
     # For arbitrary uid support
     install -d -m 775 -o $UID -g 0 /.local && \
     install -d -m 775 -o $UID -g 0 /.config && \
     chown -R $UID:0 /home/$UID && chmod -R g=u /home/$UID
 
-
-
 # Combine all data operations into a single layer
 COPY --chown=$UID:0 --chmod=775 ./data /data 
 
 #Download Models
-# Load the environment variables from the .env file
-#RUN echo "HF_TOKEN="
-#RUN echo "$HF_TOKEN" | sed 's/./& /g'
 RUN mkdir -p data/models/Stable-diffusion/Flux
 RUN mkdir -p data/models/VAE
 RUN mkdir -p data/models/Deforum
-RUN wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors \
-    && wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt
+# Download Models only if they do not already exist
+RUN export HF_TOKEN=${HF_TOKEN} \
+    && if [ ! -f "data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors" ]; then \
+        wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Stable-diffusion/Flux/flux1-dev-bnb-nf4-v2.safetensors https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors; \
+    fi \
+    && if [ ! -f "data/models/VAE/ae.safetensors" ]; then \
+        wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors; \
+    fi \
+    && if [ ! -f "data/models/VAE/clip_l.safetensors" ]; then \
+        wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors; \
+    fi \
+    && if [ ! -f "data/models/VAE/t5xxl_fp16.safetensors" ]; then \
+        wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/VAE/t5xxl_fp16.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors; \
+    fi \
+    && if [ ! -f "data/models/Deforum/dpt_large-midas-2f21e586.pt" ]; then \
+        wget --header="Authorization: Bearer $HF_TOKEN" -O data/models/Deforum/dpt_large-midas-2f21e586.pt https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt; \
+    fi
 
 # curl for healthcheck
 COPY --link --from=ghcr.io/tarampampam/curl:8.7.1 /bin/curl /usr/local/bin/
@@ -150,20 +151,22 @@ COPY --link --from=ghcr.io/jim60105/static-ffmpeg-upx:7.0-1 /ffprobe /usr/local/
 # dumb-init
 COPY --link --from=ghcr.io/jim60105/static-ffmpeg-upx:7.0-1 /dumb-init /usr/bin/
 
-# Copy licenses (OpenShift Policy)
-COPY --link --chown=$UID:0 --chmod=775 LICENSE /licenses/Dockerfile.LICENSE
-COPY --link --chown=$UID:0 --chmod=775 stable-diffusion-webui/LICENSE.txt /licenses/stable-diffusion-webui.LICENSE.txt
-COPY --link --chown=$UID:0 --chmod=775 stable-diffusion-webui/html/licenses.html /licenses/stable-diffusion-webui-borrowed-code.LICENSE.html
-
-# Copy entrypoint
+# Copy entrypoint and scripts
 COPY --link --chown=$UID:0 --chmod=775 entrypoint.sh /entrypoint.sh
-
 COPY --link --chown=$UID:0 --chmod=775 run.py /run.py
 COPY --link --chown=$UID:0 --chmod=775 aws_ingest.py /aws_ingest.py
 
-# Copy dependencies and code
-COPY --link --chown=$UID:0 --chmod=775 --from=build /root/.local /home/$UID/.local
-COPY --link --chown=$UID:0 --chmod=775 stable-diffusion-webui /app
+# Clone the stable-diffusion-webui-forge repository directly into /app
+RUN git clone --depth=1 https://github.com/lllyasviel/stable-diffusion-webui-forge /app && \
+    chown -R $UID:0 /app && \
+    chmod -R 775 /app
+
+RUN mkdir -p data/extensions/sd-forge-deforum && \
+    git clone --depth=1 https://github.com/Tok/sd-forge-deforum.git data/extensions/sd-forge-deforum
+
+# Copy installed packages from build stage
+COPY --from=build /root/.local /home/$UID/.local
+RUN chown -R $UID:0 /home/$UID/.local && chmod -R g=u /home/$UID/.local
 
 ENV PATH="/app:/home/$UID/.local/bin:$PATH"
 ENV PYTHONPATH="/app:/home/$UID/.local/lib/python3.10/site-packages:$PYTHONPATH"
@@ -186,7 +189,7 @@ STOPSIGNAL SIGINT
 HEALTHCHECK --interval=30s --timeout=2s --start-period=30s \
     CMD [ "curl", "--fail", "http://localhost:7860/" ]
 
-    # Use dumb-init as PID 1 to handle signals properly
+# Use dumb-init as PID 1 to handle signals properly
 ENTRYPOINT [ "dumb-init", "--", "/entrypoint.sh" ]
 
 CMD [ "--xformers", "--api", "--allow-code" ]
@@ -194,14 +197,10 @@ CMD [ "--xformers", "--api", "--allow-code" ]
 ARG VERSION
 ARG RELEASE
 LABEL name="jim60105/docker-stable-diffusion-webui" \
-    # Author for stable-diffusion-webui
     vendor="AUTOMATIC1111" \
-    # Dockerfile maintainer
     maintainer="jim60105" \
-    # Dockerfile source repository
     url="https://github.com/jim60105/docker-stable-diffusion-webui" \
     version=${VERSION} \
-    # This should be a number, incremented with each change
     release=${RELEASE} \
     io.k8s.display-name="stable-diffusion-webui" \
     summary="Stable Diffusion web UI: A web interface for Stable Diffusion, implemented using Gradio library." \
